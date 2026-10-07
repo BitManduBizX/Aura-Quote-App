@@ -1,0 +1,6 @@
+{
+  "name": "AuraQuote — MonochromeWisdom",
+  "description": "Timeless Wisdom. Modern Reflection. Discover, customize, and share curated life, success, and multicultural quotes with a studio canvas designer and AI literary curator.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
