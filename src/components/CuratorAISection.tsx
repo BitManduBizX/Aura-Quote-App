@@ -11,7 +11,8 @@ import {
   Layers,
   Loader2,
 } from 'lucide-react';
-import { AIExplorationResult, EmojiVibe, QuoteItem, QuoteTag, SubCategory, TopicCategory } from '../types/quotes';
+import { AIExplorationResult, QuoteItem } from '../types/quotes';
+import { exploreWisdom, synthesizeQuotes } from '../services/geminiService';
 
 interface CuratorAISectionProps {
   activeQuoteForAI: QuoteItem | null;
@@ -46,26 +47,21 @@ export const CuratorAISection: React.FC<CuratorAISectionProps> = ({
     setIsExploring(true);
     try {
       const targetQuote = quoteCtx !== undefined ? quoteCtx : activeQuoteForAI;
-      const response = await fetch('/api/gemini/explore', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt:
-            customPrompt ??
-            (inquiryInput.trim() ||
-              'Unpack the philosophical weight, historical origin, cross-cultural parallels, and modern leadership application of this quote.'),
-          quoteContext: targetQuote
-            ? {
-                text: targetQuote.text,
-                author: targetQuote.author,
-                origin: targetQuote.originLocation,
-              }
-            : undefined,
-        }),
-      });
-      const json = await response.json();
-      if (json?.data) {
-        setExplorationResult(json.data);
+      const promptToRun =
+        customPrompt ??
+        (inquiryInput.trim() ||
+          'Unpack the philosophical weight, historical origin, cross-cultural parallels, and modern leadership application of this quote.');
+      const quoteContext = targetQuote
+        ? {
+            text: targetQuote.text,
+            author: targetQuote.author,
+            origin: targetQuote.originLocation,
+          }
+        : undefined;
+
+      const result = await exploreWisdom(promptToRun, quoteContext);
+      if (result) {
+        setExplorationResult(result);
       }
     } catch (err) {
       console.error('Failed to explore quote:', err);
@@ -94,33 +90,14 @@ export const CuratorAISection: React.FC<CuratorAISectionProps> = ({
     e.preventDefault();
     setIsGenerating(true);
     try {
-      const response = await fetch('/api/gemini/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          topic: topicInput,
-          tone: toneInput,
-          occasion: occasionInput,
-          culture: cultureInput,
-        }),
+      const quotes = await synthesizeQuotes({
+        topic: topicInput,
+        tone: toneInput,
+        occasion: occasionInput,
+        culture: cultureInput,
       });
-      const json = await response.json();
-      if (Array.isArray(json?.quotes)) {
-        const mapped: QuoteItem[] = json.quotes.map((q: Record<string, unknown>, idx: number) => ({
-          id: `ai-gen-${Date.now()}-${idx}`,
-          accessionNumber: `AQ · AI-${idx + 1}`,
-          text: String(q?.text || ''),
-          author: String(q?.author || 'AuraQuote Curatorial Synthesis'),
-          authorRole: `${toneInput} · ${cultureInput}`,
-          era: 'Contemporary Synthesis',
-          category: (q?.category as Exclude<TopicCategory, 'All'>) || 'Life',
-          subCategory: (q?.subCategory as Exclude<SubCategory, 'All'>) || 'Deep & Thought-Provoking',
-          tags: (Array.isArray(q?.tags) ? q.tags : ['#UniqueLifeQuotes', '#ProfoundWisdom']) as QuoteTag[],
-          emojiVibe: (q?.emojiVibe as EmojiVibe) || '⚡',
-          originLocation: String(q?.origin || occasionInput),
-          backstory: String(q?.backstory || ''),
-        }));
-        setGeneratedQuotes(mapped);
+      if (Array.isArray(quotes) && quotes.length > 0) {
+        setGeneratedQuotes(quotes);
       }
     } catch (err) {
       console.error('Failed to synthesize quotes:', err);
